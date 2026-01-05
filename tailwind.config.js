@@ -41,6 +41,14 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        status: {
+          overdue: "hsl(var(--status-overdue))",
+          "overdue-foreground": "hsl(var(--status-overdue-foreground))",
+          due: "hsl(var(--status-due))",
+          "due-foreground": "hsl(var(--status-due-foreground))",
+          ok: "hsl(var(--status-ok))",
+          "ok-foreground": "hsl(var(--status-ok-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
