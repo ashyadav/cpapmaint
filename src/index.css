@@ -24,6 +24,14 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* Status colors for maintenance tracking */
+    --status-overdue: 0 84.2% 60.2%; /* Red - overdue items */
+    --status-overdue-foreground: 0 0% 100%;
+    --status-due: 38 92% 50%; /* Yellow/Orange - due today */
+    --status-due-foreground: 20 14.3% 4.1%;
+    --status-ok: 142 76% 36%; /* Green - all good */
+    --status-ok-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -46,6 +54,14 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+
+    /* Status colors for dark mode */
+    --status-overdue: 0 62.8% 50%;
+    --status-overdue-foreground: 210 40% 98%;
+    --status-due: 38 92% 50%;
+    --status-due-foreground: 20 14.3% 4.1%;
+    --status-ok: 142 70% 45%;
+    --status-ok-foreground: 210 40% 98%;
   }
 }
 
