@@ -1,5 +1,14 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
+import {
+  SetupLayout,
+  WelcomeStep,
+  SelectStep,
+  ConfigureStep,
+  NotificationsStep,
+  CompleteStep,
+} from '@/pages/setup'
+import { Schedule } from '@/pages/Schedule'
 import { Header, Container } from '@/components/layout'
 import {
   Button,
@@ -20,6 +29,8 @@ import {
 } from '@/components/ui'
 
 function Home() {
+  const navigate = useNavigate()
+
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -176,7 +187,7 @@ function Home() {
                 <EmptyState
                   title="All caught up!"
                   description="Great work! Everything is up to date. Next maintenance: Water chamber clean in 2 days."
-                  action={<Button>View Schedule</Button>}
+                  action={<Button onClick={() => navigate('/schedule')}>View Schedule</Button>}
                 />
               </CardContent>
             </Card>
@@ -185,6 +196,23 @@ function Home() {
       </main>
     </div>
   )
+}
+
+// Setup Completion Check Wrapper
+function SetupGuard({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const isSetupComplete = localStorage.getItem('setup_completed') === 'true'
+
+    // If not complete and not on setup route, redirect to setup
+    if (!isSetupComplete && !location.pathname.startsWith('/setup')) {
+      navigate('/setup/welcome')
+    }
+  }, [location.pathname, navigate])
+
+  return <>{children}</>
 }
 
 function App() {
@@ -211,9 +239,23 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
+      <SetupGuard>
+        <Routes>
+          {/* Setup Wizard Routes */}
+          <Route path="/setup" element={<SetupLayout />}>
+            <Route path="welcome" element={<WelcomeStep />} />
+            <Route path="select" element={<SelectStep />} />
+            <Route path="configure" element={<ConfigureStep />} />
+            <Route path="notifications" element={<NotificationsStep />} />
+            <Route path="complete" element={<CompleteStep />} />
+            <Route index element={<Navigate to="welcome" replace />} />
+          </Route>
+
+          {/* Main App Routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/schedule" element={<Schedule />} />
+        </Routes>
+      </SetupGuard>
     </Router>
   )
 }
