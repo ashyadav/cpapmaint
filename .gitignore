@@ -47,3 +47,4 @@ coverage/
 # PWA
 sw.js
 workbox-*.js
+phase-1.5-implementation.patch
