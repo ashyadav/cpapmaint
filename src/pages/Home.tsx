@@ -3,10 +3,11 @@ import { Header, Container } from '@/components/layout';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import { MaintenanceActionCard } from '@/components/MaintenanceActionCard';
+import { CompletionModal } from '@/components/CompletionModal';
 import { StreakCelebration } from '@/components/StreakCelebration';
 import { CompletionToast } from '@/components/CompletionToast';
 import { useAppStore, useOverdueActions, useDueTodayActions, useUpcomingActions, useCurrentStreak } from '@/lib/store';
-import { completeMaintenanceAction } from '@/lib/scheduler';
+import { completeMaintenanceAction, skipMaintenanceAction, snoozeMaintenanceAction } from '@/lib/scheduler';
 import { formatRelativeTime } from '@/lib/date-helpers';
 import type { MaintenanceAction, Component } from '@/lib/db';
 
@@ -17,7 +18,13 @@ export function Home() {
   const upcomingActions = useUpcomingActions(7);
   const currentStreak = useCurrentStreak();
 
-  const [completingActionId, setCompletingActionId] = useState<string | null>(null);
+  // Modal state
+  const [selectedAction, setSelectedAction] = useState<MaintenanceAction | null>(null);
+  const [selectedComponent, setSelectedComponent] = useState<Component | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [processingActionId, setProcessingActionId] = useState<string | null>(null);
+
+  // Feedback state
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
@@ -30,23 +37,27 @@ export function Home() {
     }
   }, [isInitialized, loadData]);
 
-  const handleComplete = async (actionId: string) => {
-    setCompletingActionId(actionId);
+  // Handle opening the completion modal
+  const handleActionSelect = (action: MaintenanceAction, component: Component) => {
+    setSelectedAction(action);
+    setSelectedComponent(component);
+    setIsModalOpen(true);
+  };
+
+  // Handle completing an action
+  const handleComplete = async (actionId: string, notes?: string) => {
+    setProcessingActionId(actionId);
 
     try {
-      // Complete the action
-      await completeMaintenanceAction(actionId);
-
-      // Refresh data from database
+      await completeMaintenanceAction(actionId, new Date(), notes);
       await refreshMaintenanceActions();
 
       // Show success feedback
       setToastMessage('Task completed! Great job!');
       setShowToast(true);
 
-      // Check if we should show streak celebration
-      // Show celebration at 7, 30, 90 day milestones
-      const newStreak = currentStreak; // This would be recalculated
+      // Check if we should show streak celebration at milestones
+      const newStreak = currentStreak;
       if (newStreak === 7 || newStreak === 30 || newStreak === 90) {
         setCelebrationStreak(newStreak);
         setTimeout(() => setShowStreakCelebration(true), 500);
@@ -56,7 +67,46 @@ export function Home() {
       setToastMessage('Failed to complete task. Please try again.');
       setShowToast(true);
     } finally {
-      setCompletingActionId(null);
+      setProcessingActionId(null);
+    }
+  };
+
+  // Handle skipping an action
+  const handleSkip = async (actionId: string) => {
+    setProcessingActionId(actionId);
+
+    try {
+      await skipMaintenanceAction(actionId);
+      await refreshMaintenanceActions();
+
+      setToastMessage('Task skipped. We\'ll remind you at the next scheduled time.');
+      setShowToast(true);
+    } catch (error) {
+      console.error('Error skipping action:', error);
+      setToastMessage('Failed to skip task. Please try again.');
+      setShowToast(true);
+    } finally {
+      setProcessingActionId(null);
+    }
+  };
+
+  // Handle snoozing an action
+  const handleSnooze = async (actionId: string, hours: number) => {
+    setProcessingActionId(actionId);
+
+    try {
+      await snoozeMaintenanceAction(actionId, hours);
+      await refreshMaintenanceActions();
+
+      const timeLabel = hours === 1 ? '1 hour' : hours === 24 ? 'tomorrow' : `${hours} hours`;
+      setToastMessage(`Snoozed! We'll remind you in ${timeLabel}.`);
+      setShowToast(true);
+    } catch (error) {
+      console.error('Error snoozing action:', error);
+      setToastMessage('Failed to snooze task. Please try again.');
+      setShowToast(true);
+    } finally {
+      setProcessingActionId(null);
     }
   };
 
@@ -138,8 +188,8 @@ export function Home() {
                           key={action.id}
                           action={action}
                           component={component}
-                          onComplete={handleComplete}
-                          isCompleting={completingActionId === action.id}
+                          onActionSelect={handleActionSelect}
+                          isProcessing={processingActionId === action.id}
                         />
                       );
                     })}
@@ -166,8 +216,8 @@ export function Home() {
                           key={action.id}
                           action={action}
                           component={component}
-                          onComplete={handleComplete}
-                          isCompleting={completingActionId === action.id}
+                          onActionSelect={handleActionSelect}
+                          isProcessing={processingActionId === action.id}
                         />
                       );
                     })}
@@ -178,6 +228,19 @@ export function Home() {
           )}
         </Container>
       </main>
+
+      {/* Completion modal */}
+      {selectedAction && selectedComponent && (
+        <CompletionModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          action={selectedAction}
+          component={selectedComponent}
+          onComplete={handleComplete}
+          onSkip={handleSkip}
+          onSnooze={handleSnooze}
+        />
+      )}
 
       {/* Completion toast */}
       {showToast && (

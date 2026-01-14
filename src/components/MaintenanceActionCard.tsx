@@ -8,15 +8,15 @@ import { getDueStatus, formatRelativeTime, getDaysOverdue } from '@/lib/date-hel
 interface MaintenanceActionCardProps {
   action: MaintenanceAction;
   component: Component;
-  onComplete: (actionId: string) => void;
-  isCompleting?: boolean;
+  onActionSelect: (action: MaintenanceAction, component: Component) => void;
+  isProcessing?: boolean;
 }
 
 export function MaintenanceActionCard({
   action,
   component,
-  onComplete,
-  isCompleting = false,
+  onActionSelect,
+  isProcessing = false,
 }: MaintenanceActionCardProps) {
   const dueStatus = action.next_due ? getDueStatus(action.next_due) : 'ok';
   const daysOverdue = action.next_due && dueStatus === 'overdue' ? getDaysOverdue(action.next_due as Date) : 0;
@@ -27,9 +27,9 @@ export function MaintenanceActionCard({
     ok: 'bg-background border-border',
   };
 
-  const handleComplete = () => {
-    if (!isCompleting && action.id) {
-      onComplete(action.id);
+  const handleClick = () => {
+    if (!isProcessing) {
+      onActionSelect(action, component);
     }
   };
 
@@ -78,15 +78,15 @@ export function MaintenanceActionCard({
             )}
           </div>
 
-          {/* Right side - Quick complete button */}
+          {/* Right side - Action button */}
           <div className="flex-shrink-0">
             <Button
-              onClick={handleComplete}
-              disabled={isCompleting}
+              onClick={handleClick}
+              disabled={isProcessing}
               size="lg"
               className="whitespace-nowrap"
             >
-              {isCompleting ? 'Completing...' : 'Mark Done'}
+              {isProcessing ? 'Processing...' : 'Mark Done'}
             </Button>
           </div>
         </div>

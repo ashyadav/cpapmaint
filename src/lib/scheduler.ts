@@ -79,15 +79,38 @@ export async function completeMaintenanceAction(
 
 /**
  * Skip a maintenance action (dismiss without logging completion)
- * The action will remain overdue and continue to send reminders
+ * Reschedules to the next occurrence from the original due date
+ * This prevents "debt accumulation" - we don't guilt-trip about missed tasks
  *
  * @param actionId - The ID of the maintenance action to skip
+ * @returns The next due date after skipping
  */
-export async function skipMaintenanceAction(actionId: string): Promise<void> {
-  // For now, skip just means we don't do anything
-  // The action remains in its current state (overdue if it was overdue)
-  // Future: Could add a "skipped" log entry or temporary snooze
-  console.log(`Skipped maintenance action ${actionId}`);
+export async function skipMaintenanceAction(actionId: string): Promise<Date> {
+  const action = await dbOperations.maintenanceActions.getById(actionId);
+  if (!action) {
+    throw new Error(`Maintenance action ${actionId} not found`);
+  }
+
+  // Calculate next due date from original due date (prevents drift)
+  const originalDueDate = action.next_due || new Date();
+  const nextDueDate = calculateNextDueDate(
+    originalDueDate,
+    action.schedule_frequency,
+    action.schedule_unit
+  );
+
+  // Apply notification time if set
+  let finalNextDue = nextDueDate;
+  if (action.notification_time) {
+    finalNextDue = setTime(nextDueDate, action.notification_time);
+  }
+
+  // Update the action - no log entry, just reschedule
+  await dbOperations.maintenanceActions.update(actionId, {
+    next_due: finalNextDue,
+  });
+
+  return finalNextDue;
 }
 
 /**
