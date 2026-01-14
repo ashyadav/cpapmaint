@@ -7,6 +7,44 @@ const generateId = (): string => {
 };
 
 // ============================================================================
+// Date Parsing Helpers
+// ============================================================================
+
+/**
+ * Parse a date value that may be stored as a string or Date object
+ */
+const parseDate = (value: Date | string | undefined): Date | undefined => {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  return new Date(value);
+};
+
+/**
+ * Parse date fields in a maintenance action
+ */
+const parseMaintenanceActionDates = (action: MaintenanceAction): MaintenanceAction => ({
+  ...action,
+  next_due: parseDate(action.next_due),
+  last_completed: parseDate(action.last_completed),
+});
+
+/**
+ * Parse date fields in a maintenance log
+ */
+const parseMaintenanceLogDates = (log: MaintenanceLog): MaintenanceLog => ({
+  ...log,
+  completed_at: parseDate(log.completed_at) as Date,
+});
+
+/**
+ * Parse date fields in a component
+ */
+const parseComponentDates = (component: Component): Component => ({
+  ...component,
+  created_at: parseDate(component.created_at) as Date,
+});
+
+// ============================================================================
 // Component CRUD Operations
 // ============================================================================
 
@@ -28,28 +66,32 @@ export const componentOperations = {
    * Get a component by ID
    */
   async getById(id: string): Promise<Component | undefined> {
-    return await db.components.get(id);
+    const component = await db.components.get(id);
+    return component ? parseComponentDates(component) : undefined;
   },
 
   /**
    * Get all components
    */
   async getAll(): Promise<Component[]> {
-    return await db.components.toArray();
+    const components = await db.components.toArray();
+    return components.map(parseComponentDates);
   },
 
   /**
    * Get all active components
    */
   async getActive(): Promise<Component[]> {
-    return await db.components.where('is_active').equals(1).toArray();
+    const components = await db.components.where('is_active').equals(1).toArray();
+    return components.map(parseComponentDates);
   },
 
   /**
    * Get components by category
    */
   async getByCategory(category: Component['category']): Promise<Component[]> {
-    return await db.components.where('category').equals(category).toArray();
+    const components = await db.components.where('category').equals(category).toArray();
+    return components.map(parseComponentDates);
   },
 
   /**
@@ -122,21 +164,24 @@ export const maintenanceActionOperations = {
    * Get a maintenance action by ID
    */
   async getById(id: string): Promise<MaintenanceAction | undefined> {
-    return await db.maintenanceActions.get(id);
+    const action = await db.maintenanceActions.get(id);
+    return action ? parseMaintenanceActionDates(action) : undefined;
   },
 
   /**
    * Get all maintenance actions
    */
   async getAll(): Promise<MaintenanceAction[]> {
-    return await db.maintenanceActions.toArray();
+    const actions = await db.maintenanceActions.toArray();
+    return actions.map(parseMaintenanceActionDates);
   },
 
   /**
    * Get all maintenance actions for a component
    */
   async getByComponent(componentId: string): Promise<MaintenanceAction[]> {
-    return await db.maintenanceActions.where('component_id').equals(componentId).toArray();
+    const actions = await db.maintenanceActions.where('component_id').equals(componentId).toArray();
+    return actions.map(parseMaintenanceActionDates);
   },
 
   /**
@@ -145,7 +190,7 @@ export const maintenanceActionOperations = {
   async getDue(): Promise<MaintenanceAction[]> {
     const now = new Date();
     const actions = await db.maintenanceActions.toArray();
-    return actions.filter(action => action.next_due && action.next_due <= now);
+    return actions.map(parseMaintenanceActionDates).filter(action => action.next_due && action.next_due <= now);
   },
 
   /**
@@ -154,7 +199,7 @@ export const maintenanceActionOperations = {
   async getOverdue(): Promise<MaintenanceAction[]> {
     const now = new Date();
     const actions = await db.maintenanceActions.toArray();
-    return actions.filter(action => {
+    return actions.map(parseMaintenanceActionDates).filter(action => {
       if (!action.next_due) return false;
       const daysDiff = Math.floor((now.getTime() - action.next_due.getTime()) / (1000 * 60 * 60 * 24));
       return daysDiff > 0;
@@ -170,7 +215,7 @@ export const maintenanceActionOperations = {
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
     const actions = await db.maintenanceActions.toArray();
-    return actions.filter(action => {
+    return actions.map(parseMaintenanceActionDates).filter(action => {
       if (!action.next_due) return false;
       return action.next_due >= startOfDay && action.next_due <= endOfDay;
     });
@@ -185,7 +230,7 @@ export const maintenanceActionOperations = {
     futureDate.setDate(futureDate.getDate() + days);
 
     const actions = await db.maintenanceActions.toArray();
-    return actions.filter(action => {
+    return actions.map(parseMaintenanceActionDates).filter(action => {
       if (!action.next_due) return false;
       return action.next_due > now && action.next_due <= futureDate;
     }).sort((a, b) => {
@@ -247,7 +292,8 @@ export const maintenanceLogOperations = {
    * Get a maintenance log by ID
    */
   async getById(id: string): Promise<MaintenanceLog | undefined> {
-    return await db.maintenanceLogs.get(id);
+    const log = await db.maintenanceLogs.get(id);
+    return log ? parseMaintenanceLogDates(log) : undefined;
   },
 
   /**
@@ -255,7 +301,7 @@ export const maintenanceLogOperations = {
    */
   async getAll(): Promise<MaintenanceLog[]> {
     const logs = await db.maintenanceLogs.toArray();
-    return logs.sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
+    return logs.map(parseMaintenanceLogDates).sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
   },
 
   /**
@@ -263,7 +309,7 @@ export const maintenanceLogOperations = {
    */
   async getByComponent(componentId: string): Promise<MaintenanceLog[]> {
     const logs = await db.maintenanceLogs.where('component_id').equals(componentId).toArray();
-    return logs.sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
+    return logs.map(parseMaintenanceLogDates).sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
   },
 
   /**
@@ -271,7 +317,7 @@ export const maintenanceLogOperations = {
    */
   async getByAction(actionId: string): Promise<MaintenanceLog[]> {
     const logs = await db.maintenanceLogs.where('action_id').equals(actionId).toArray();
-    return logs.sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
+    return logs.map(parseMaintenanceLogDates).sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
   },
 
   /**
@@ -282,7 +328,7 @@ export const maintenanceLogOperations = {
       .where('completed_at')
       .between(startDate, endDate, true, true)
       .toArray();
-    return logs.sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
+    return logs.map(parseMaintenanceLogDates).sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
   },
 
   /**
@@ -290,7 +336,7 @@ export const maintenanceLogOperations = {
    */
   async getOverdue(): Promise<MaintenanceLog[]> {
     const logs = await db.maintenanceLogs.where('was_overdue').equals(1).toArray();
-    return logs.sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
+    return logs.map(parseMaintenanceLogDates).sort((a, b) => b.completed_at.getTime() - a.completed_at.getTime());
   },
 
   /**
