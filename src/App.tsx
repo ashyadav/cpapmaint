@@ -1,6 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Home } from '@/pages/Home'
+import { Components } from '@/pages/Components'
+import { ComponentDetail } from '@/pages/ComponentDetail'
+import { ComponentForm } from '@/pages/ComponentForm'
+import { MaintenanceActionForm } from '@/pages/MaintenanceActionForm'
 
 function App() {
   // Dark mode detection and setup
@@ -28,6 +32,12 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/components" element={<Components />} />
+        <Route path="/components/new" element={<ComponentForm />} />
+        <Route path="/components/:id" element={<ComponentDetail />} />
+        <Route path="/components/:id/edit" element={<ComponentForm />} />
+        <Route path="/components/:id/actions/new" element={<MaintenanceActionForm />} />
+        <Route path="/components/:id/actions/:actionId/edit" element={<MaintenanceActionForm />} />
       </Routes>
     </Router>
   )
