@@ -11,6 +11,10 @@ export * from './date-helpers';
 export * from './scheduler';
 export * from './component-templates';
 
+// Notifications
+export * from './notifications';
+export * from './notification-scheduler';
+
 // Types re-exports for convenience
 export type {
   Component,

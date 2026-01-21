@@ -11,11 +11,13 @@ import { CompletionToast } from '@/components/CompletionToast';
 import { useAppStore, useOverdueActions, useDueTodayActions, useUpcomingActions, useCurrentStreak } from '@/lib/store';
 import { completeMaintenanceAction, skipMaintenanceAction, snoozeMaintenanceAction } from '@/lib/scheduler';
 import { formatRelativeTime } from '@/lib/date-helpers';
+import { updateBadgeCount } from '@/lib/notification-scheduler';
 import type { MaintenanceAction, Component } from '@/lib/db';
 
 const navItems = [
   { label: 'Home', href: '/', active: true },
   { label: 'Components', href: '/components' },
+  { label: 'Settings', href: '/settings' },
 ];
 
 export function Home() {
@@ -59,6 +61,9 @@ export function Home() {
       await completeMaintenanceAction(actionId, new Date(), notes);
       await refreshMaintenanceActions();
 
+      // Update notification badge count
+      await updateBadgeCount();
+
       // Show success feedback
       setToastMessage('Task completed! Great job!');
       setShowToast(true);
@@ -86,6 +91,9 @@ export function Home() {
       await skipMaintenanceAction(actionId);
       await refreshMaintenanceActions();
 
+      // Update notification badge count
+      await updateBadgeCount();
+
       setToastMessage('Task skipped. We\'ll remind you at the next scheduled time.');
       setShowToast(true);
     } catch (error) {
@@ -104,6 +112,9 @@ export function Home() {
     try {
       await snoozeMaintenanceAction(actionId, hours);
       await refreshMaintenanceActions();
+
+      // Update notification badge count
+      await updateBadgeCount();
 
       const timeLabel = hours === 1 ? '1 hour' : hours === 24 ? 'tomorrow' : `${hours} hours`;
       setToastMessage(`Snoozed! We'll remind you in ${timeLabel}.`);

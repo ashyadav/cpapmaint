@@ -26,6 +26,7 @@ import type { MaintenanceAction } from '@/lib/db';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Components', href: '/components' },
+  { label: 'Settings', href: '/settings' },
 ];
 
 type ScheduleUnit = 'days' | 'uses';
