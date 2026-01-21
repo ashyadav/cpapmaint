@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Header, Container } from '@/components/layout';
+import { Link } from 'react-router-dom';
+import { Header, Container, Navigation } from '@/components/layout';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import { MaintenanceActionCard } from '@/components/MaintenanceActionCard';
 import { CompletionModal } from '@/components/CompletionModal';
 import { StreakCelebration } from '@/components/StreakCelebration';
@@ -10,6 +12,11 @@ import { useAppStore, useOverdueActions, useDueTodayActions, useUpcomingActions,
 import { completeMaintenanceAction, skipMaintenanceAction, snoozeMaintenanceAction } from '@/lib/scheduler';
 import { formatRelativeTime } from '@/lib/date-helpers';
 import type { MaintenanceAction, Component } from '@/lib/db';
+
+const navItems = [
+  { label: 'Home', href: '/', active: true },
+  { label: 'Components', href: '/components' },
+];
 
 export function Home() {
   const { isLoading, isInitialized, loadData, refreshMaintenanceActions, components } = useAppStore();
@@ -131,6 +138,7 @@ export function Home() {
           title="CPAP Maintenance Tracker"
           description="Track your CPAP equipment maintenance"
         />
+        <Navigation items={navItems} />
         <main>
           <Container>
             <div className="flex items-center justify-center py-12">
@@ -154,19 +162,32 @@ export function Home() {
         title="CPAP Maintenance Tracker"
         description="Track your CPAP equipment maintenance"
       />
+      <Navigation items={navItems} />
 
       <main>
         <Container>
           {!hasActionsNeedingAttention ? (
-            // Empty state - All caught up!
-            <EmptyState
-              title="All caught up!"
-              description={
-                nextUpcoming && nextUpcoming.next_due
-                  ? `Great work! Everything is up to date. Next maintenance: ${getComponentById(nextUpcoming.component_id)?.name} - ${nextUpcoming.action_type} ${formatRelativeTime(nextUpcoming.next_due)}.`
-                  : 'Great work! Everything is up to date. No upcoming maintenance scheduled.'
-              }
-            />
+            // Empty state - All caught up or no components
+            components.length === 0 ? (
+              <EmptyState
+                title="Welcome to CPAP Maintenance Tracker"
+                description="Get started by adding your first CPAP component. We'll help you keep track of all your maintenance tasks."
+                action={
+                  <Link to="/components/new">
+                    <Button>Add Your First Component</Button>
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="All caught up!"
+                description={
+                  nextUpcoming && nextUpcoming.next_due
+                    ? `Great work! Everything is up to date. Next maintenance: ${getComponentById(nextUpcoming.component_id)?.name} - ${nextUpcoming.action_type} ${formatRelativeTime(nextUpcoming.next_due)}.`
+                    : 'Great work! Everything is up to date. No upcoming maintenance scheduled.'
+                }
+              />
+            )
           ) : (
             <div className="space-y-6">
               {/* Overdue Items */}
