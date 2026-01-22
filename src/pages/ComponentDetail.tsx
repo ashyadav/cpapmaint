@@ -27,6 +27,7 @@ import type { Component, MaintenanceAction, MaintenanceLog } from '@/lib/db';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Components', href: '/components' },
+  { label: 'Settings', href: '/settings' },
 ];
 
 function ActionHistoryItem({ log, actions }: { log: MaintenanceLog; actions: MaintenanceAction[] }) {
