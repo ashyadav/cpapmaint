@@ -319,6 +319,7 @@ export async function getMaintenanceSummary(): Promise<{
 
 /**
  * Calculate statistics for a date range
+ * Properly calculates required tasks based on action schedules
  */
 export async function calculateStatistics(
   startDate: Date,
@@ -329,16 +330,60 @@ export async function calculateStatistics(
   compliancePercentage: number;
   overdueCompletions: number;
   onTimeCompletions: number;
+  scheduledActionsPerDay: Map<string, Set<string>>;
 }> {
-  const logs = await dbOperations.maintenanceLogs.getByDateRange(startDate, endDate);
+  const [logs, allActions] = await Promise.all([
+    dbOperations.maintenanceLogs.getByDateRange(startDate, endDate),
+    dbOperations.maintenanceActions.getAll(),
+  ]);
 
   const totalCompleted = logs.length;
   const overdueCompletions = logs.filter((log) => log.was_overdue).length;
   const onTimeCompletions = totalCompleted - overdueCompletions;
 
-  // Calculate total required (simplified - would need more complex logic in real app)
-  // For now, assume same number as completed
-  const totalRequired = totalCompleted;
+  // Calculate total required based on action schedules
+  // For each action, count how many times it should have been done in the date range
+  let totalRequired = 0;
+  const scheduledActionsPerDay = new Map<string, Set<string>>();
+
+  const startTime = startDate.getTime();
+  const endTime = endDate.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  for (const action of allActions) {
+    if (action.schedule_unit !== 'days') continue; // Only handle day-based schedules for now
+
+    const frequency = action.schedule_frequency;
+    if (frequency <= 0) continue;
+
+    // Calculate how many occurrences of this action should have happened in the range
+    const daysInRange = Math.ceil((endTime - startTime) / dayMs) + 1;
+    const occurrences = Math.floor(daysInRange / frequency);
+    totalRequired += occurrences;
+
+    // Track which days each action was due
+    // Start from the action's next_due or created date and work backwards/forwards
+    let checkDate = action.next_due || new Date();
+    // Find the first occurrence in range by stepping back
+    while (checkDate.getTime() > startTime) {
+      checkDate = new Date(checkDate.getTime() - frequency * dayMs);
+    }
+    // Now step forward to find all occurrences in range
+    while (checkDate.getTime() <= endTime) {
+      if (checkDate.getTime() >= startTime) {
+        const dayKey = checkDate.toISOString().split('T')[0];
+        if (!scheduledActionsPerDay.has(dayKey)) {
+          scheduledActionsPerDay.set(dayKey, new Set());
+        }
+        if (action.id) {
+          scheduledActionsPerDay.get(dayKey)!.add(action.id);
+        }
+      }
+      checkDate = new Date(checkDate.getTime() + frequency * dayMs);
+    }
+  }
+
+  // If no scheduled actions, return 100% compliance
   const compliancePercentage =
     totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 100;
 
@@ -348,6 +393,7 @@ export async function calculateStatistics(
     compliancePercentage,
     overdueCompletions,
     onTimeCompletions,
+    scheduledActionsPerDay,
   };
 }
 

@@ -6,6 +6,7 @@ import { ComponentDetail } from '@/pages/ComponentDetail'
 import { ComponentForm } from '@/pages/ComponentForm'
 import { MaintenanceActionForm } from '@/pages/MaintenanceActionForm'
 import { Settings } from '@/pages/Settings'
+import { UpdateNotification } from '@/components/UpdateNotification'
 import { areNotificationsAllowed } from '@/lib/notifications'
 import { startNotificationScheduler, updateBadgeCount } from '@/lib/notification-scheduler'
 
@@ -54,16 +55,19 @@ function AppContent() {
   }, [handleNotificationClick])
 
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/components" element={<Components />} />
-      <Route path="/components/new" element={<ComponentForm />} />
-      <Route path="/components/:id" element={<ComponentDetail />} />
-      <Route path="/components/:id/edit" element={<ComponentForm />} />
-      <Route path="/components/:id/actions/new" element={<MaintenanceActionForm />} />
-      <Route path="/components/:id/actions/:actionId/edit" element={<MaintenanceActionForm />} />
-      <Route path="/settings" element={<Settings />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/components" element={<Components />} />
+        <Route path="/components/new" element={<ComponentForm />} />
+        <Route path="/components/:id" element={<ComponentDetail />} />
+        <Route path="/components/:id/edit" element={<ComponentForm />} />
+        <Route path="/components/:id/actions/new" element={<MaintenanceActionForm />} />
+        <Route path="/components/:id/actions/:actionId/edit" element={<MaintenanceActionForm />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+      <UpdateNotification />
+    </>
   )
 }
 
