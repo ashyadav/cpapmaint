@@ -5,6 +5,7 @@ import { Components } from '@/pages/Components'
 import { ComponentDetail } from '@/pages/ComponentDetail'
 import { ComponentForm } from '@/pages/ComponentForm'
 import { MaintenanceActionForm } from '@/pages/MaintenanceActionForm'
+import { History } from '@/pages/History'
 import { Settings } from '@/pages/Settings'
 import { UpdateNotification } from '@/components/UpdateNotification'
 import { areNotificationsAllowed } from '@/lib/notifications'
@@ -64,6 +65,7 @@ function AppContent() {
         <Route path="/components/:id/edit" element={<ComponentForm />} />
         <Route path="/components/:id/actions/new" element={<MaintenanceActionForm />} />
         <Route path="/components/:id/actions/:actionId/edit" element={<MaintenanceActionForm />} />
+        <Route path="/history" element={<History />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
       <UpdateNotification />

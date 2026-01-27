@@ -27,6 +27,7 @@ import type { Component, MaintenanceAction, MaintenanceLog } from '@/lib/db';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Components', href: '/components' },
+  { label: 'History', href: '/history' },
   { label: 'Settings', href: '/settings' },
 ];
 
@@ -285,6 +286,40 @@ export function ComponentDetail() {
                 <p className="text-sm text-muted-foreground">{component.notes}</p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Component Stats */}
+          {logs.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{logs.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Completed</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-green-600">
+                    {logs.length > 0 ? Math.round(((logs.length - logs.filter(l => l.was_overdue).length) / logs.length) * 100) : 100}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">On-Time Rate</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{actions.length}</div>
+                  <div className="text-sm text-muted-foreground">Active Tasks</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {logs.filter(l => l.was_overdue).length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Completed Late</div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           <div className="grid gap-6 lg:grid-cols-2">
