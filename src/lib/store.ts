@@ -200,16 +200,122 @@ export const useActionNotificationConfig = (actionId: string) => {
  * Returns number of days with 100% completion
  */
 export const useCurrentStreak = () => {
-  // This is a simplified version - full implementation would be more complex
-  // For now, return 0 as placeholder
-  return 0;
+  const logs = useAppStore((state) => state.maintenanceLogs);
+  const actions = useAppStore((state) => state.maintenanceActions);
+
+  // Build scheduled actions per day map for the last 365 days
+  const now = new Date();
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+  const scheduledActionsPerDay = new Map<string, Set<string>>();
+
+  for (const action of actions) {
+    if (action.schedule_unit !== 'days' || action.schedule_frequency <= 0) continue;
+
+    const frequency = action.schedule_frequency;
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    // Find occurrences in range
+    let checkDate = action.next_due || new Date();
+    while (checkDate.getTime() > oneYearAgo.getTime()) {
+      checkDate = new Date(checkDate.getTime() - frequency * dayMs);
+    }
+    while (checkDate.getTime() <= now.getTime()) {
+      if (checkDate.getTime() >= oneYearAgo.getTime()) {
+        const dayKey = checkDate.toISOString().split('T')[0];
+        if (!scheduledActionsPerDay.has(dayKey)) {
+          scheduledActionsPerDay.set(dayKey, new Set());
+        }
+        if (action.id) {
+          scheduledActionsPerDay.get(dayKey)!.add(action.id);
+        }
+      }
+      checkDate = new Date(checkDate.getTime() + frequency * dayMs);
+    }
+  }
+
+  // Calculate streak using the new logic
+  const logsForStreak = logs.map(log => ({
+    completed_at: log.completed_at,
+    action_id: log.action_id,
+  }));
+
+  // Inline streak calculation to avoid circular dependency
+  if (logsForStreak.length === 0) return 0;
+
+  // Group completed actions by day
+  const completedByDay = new Map<string, Set<string>>();
+  for (const log of logsForStreak) {
+    const dayKey = log.completed_at.toISOString().split('T')[0];
+    if (!completedByDay.has(dayKey)) {
+      completedByDay.set(dayKey, new Set());
+    }
+    completedByDay.get(dayKey)!.add(log.action_id);
+  }
+
+  let streak = 0;
+  let currentDate = new Date(now);
+  currentDate.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 365; i++) {
+    const dayKey = currentDate.toISOString().split('T')[0];
+    const requiredActions = scheduledActionsPerDay.get(dayKey);
+
+    if (!requiredActions || requiredActions.size === 0) {
+      currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+      continue;
+    }
+
+    const completedActions = completedByDay.get(dayKey);
+    if (!completedActions) {
+      break;
+    }
+
+    let allCompleted = true;
+    for (const actionId of requiredActions) {
+      if (!completedActions.has(actionId)) {
+        allCompleted = false;
+        break;
+      }
+    }
+
+    if (!allCompleted) {
+      break;
+    }
+
+    streak++;
+    currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+  }
+
+  return streak;
 };
 
 /**
  * Calculate compliance percentage for last N days
  */
-export const useCompliancePercentage = () => {
-  // This is a simplified version - full implementation would be more complex
-  // For now, return 100 as placeholder
-  return 100;
+export const useCompliancePercentage = (days: number = 30) => {
+  const logs = useAppStore((state) => state.maintenanceLogs);
+  const actions = useAppStore((state) => state.maintenanceActions);
+
+  const now = new Date();
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+  // Filter logs to the date range
+  const logsInRange = logs.filter(
+    (log) => log.completed_at >= startDate && log.completed_at <= now
+  );
+
+  // Calculate required tasks in range
+  let totalRequired = 0;
+
+  for (const action of actions) {
+    if (action.schedule_unit !== 'days' || action.schedule_frequency <= 0) continue;
+    const frequency = action.schedule_frequency;
+    const occurrences = Math.floor(days / frequency);
+    totalRequired += Math.max(1, occurrences);
+  }
+
+  const totalCompleted = logsInRange.length;
+
+  if (totalRequired === 0) return 100;
+  return Math.min(100, Math.round((totalCompleted / totalRequired) * 100));
 };

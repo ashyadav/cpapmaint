@@ -21,7 +21,7 @@ const navItems = [
 ];
 
 export function Home() {
-  const { isLoading, isInitialized, loadData, refreshMaintenanceActions, components } = useAppStore();
+  const { isLoading, isInitialized, loadData, refreshMaintenanceActions, refreshMaintenanceLogs, components } = useAppStore();
   const overdueActions = useOverdueActions();
   const dueTodayActions = useDueTodayActions();
   const upcomingActions = useUpcomingActions(7);
@@ -56,10 +56,12 @@ export function Home() {
   // Handle completing an action
   const handleComplete = async (actionId: string, notes?: string) => {
     setProcessingActionId(actionId);
+    const previousStreak = currentStreak;
 
     try {
       await completeMaintenanceAction(actionId, new Date(), notes);
       await refreshMaintenanceActions();
+      await refreshMaintenanceLogs();
 
       // Update notification badge count
       await updateBadgeCount();
@@ -69,10 +71,16 @@ export function Home() {
       setShowToast(true);
 
       // Check if we should show streak celebration at milestones
-      const newStreak = currentStreak;
-      if (newStreak === 7 || newStreak === 30 || newStreak === 90) {
-        setCelebrationStreak(newStreak);
-        setTimeout(() => setShowStreakCelebration(true), 500);
+      // We need to check if this completion crossed a milestone threshold
+      // Since the store is updated async, we check if previous was just below a milestone
+      const milestones = [7, 30, 90, 180, 365];
+      for (const milestone of milestones) {
+        if (previousStreak === milestone - 1) {
+          // This completion likely pushed us to a milestone
+          setCelebrationStreak(milestone);
+          setTimeout(() => setShowStreakCelebration(true), 500);
+          break;
+        }
       }
     } catch (error) {
       console.error('Error completing action:', error);

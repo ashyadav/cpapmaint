@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import { useAppStore } from '@/lib/store';
 import {
   isNotificationSupported,
@@ -347,6 +348,7 @@ export function Settings() {
       <main>
         <Container>
           <div className="space-y-6">
+            <InstallPrompt />
             <NotificationPermissionStatus />
             <NotificationSchedulerStatus />
             <ReminderStrategiesInfo />

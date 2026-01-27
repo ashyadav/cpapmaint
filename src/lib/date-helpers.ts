@@ -274,16 +274,82 @@ export function getEscalationNotificationTimes(
 }
 
 /**
- * Calculate streak from maintenance logs
- * A streak is maintained if all required maintenance was completed each day
+ * Calculate streak from maintenance logs and scheduled actions
+ * A streak is maintained if ALL scheduled tasks for each day were completed
+ *
+ * @param logs - Array of maintenance logs with completion dates
+ * @param scheduledActionsPerDay - Map of date string (YYYY-MM-DD) to required action count
+ * @returns Number of consecutive days with 100% completion
  */
 export function calculateStreak(
+  logs: Array<{ completed_at: Date; action_id: string }>,
+  scheduledActionsPerDay: Map<string, Set<string>>
+): number {
+  if (logs.length === 0) return 0;
+
+  // Group completed actions by day
+  const completedByDay = new Map<string, Set<string>>();
+  for (const log of logs) {
+    const dayKey = format(startOfDay(log.completed_at), 'yyyy-MM-dd');
+    if (!completedByDay.has(dayKey)) {
+      completedByDay.set(dayKey, new Set());
+    }
+    completedByDay.get(dayKey)!.add(log.action_id);
+  }
+
+  let streak = 0;
+  let currentDate = startOfDay(new Date());
+
+  // Count backwards from today (or yesterday if nothing scheduled today yet)
+  for (let i = 0; i < 365; i++) {
+    const dayKey = format(currentDate, 'yyyy-MM-dd');
+    const requiredActions = scheduledActionsPerDay.get(dayKey);
+
+    // If no actions were scheduled for this day, skip it (don't break streak)
+    if (!requiredActions || requiredActions.size === 0) {
+      currentDate = addDays(currentDate, -1);
+      continue;
+    }
+
+    // Check if ALL required actions for this day were completed
+    const completedActions = completedByDay.get(dayKey);
+    if (!completedActions) {
+      // No completions on a day with required actions - streak broken
+      break;
+    }
+
+    // Check if every required action was completed
+    let allCompleted = true;
+    for (const actionId of requiredActions) {
+      if (!completedActions.has(actionId)) {
+        allCompleted = false;
+        break;
+      }
+    }
+
+    if (!allCompleted) {
+      // Not all required actions completed - streak broken
+      break;
+    }
+
+    streak++;
+    currentDate = addDays(currentDate, -1);
+  }
+
+  return streak;
+}
+
+/**
+ * Legacy calculateStreak for backward compatibility
+ * @deprecated Use the new calculateStreak with scheduled actions
+ */
+export function calculateStreakLegacy(
   completedDates: Date[]
 ): number {
   if (completedDates.length === 0) return 0;
 
   // Sort dates descending (most recent first)
-  const sortedDates = completedDates.sort((a, b) => b.getTime() - a.getTime());
+  const sortedDates = [...completedDates].sort((a, b) => b.getTime() - a.getTime());
 
   let streak = 0;
   let currentDate = startOfDay(new Date());
