@@ -71,6 +71,7 @@ function ComponentCard({ component }: { component: Component }) {
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Components', href: '/components', active: true },
+  { label: 'History', href: '/history' },
   { label: 'Settings', href: '/settings' },
 ];
 

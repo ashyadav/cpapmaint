@@ -22,6 +22,7 @@ import type { Component } from '@/lib/db';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Components', href: '/components' },
+  { label: 'History', href: '/history' },
   { label: 'Settings', href: '/settings' },
 ];
 

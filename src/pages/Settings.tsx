@@ -18,6 +18,7 @@ import { startNotificationScheduler, stopNotificationScheduler, getNotificationS
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Components', href: '/components' },
+  { label: 'History', href: '/history' },
   { label: 'Settings', href: '/settings', active: true },
 ];
 
