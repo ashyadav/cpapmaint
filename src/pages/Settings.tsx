@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import { ExportSection } from '@/components/ExportSection';
+import { ImportSection } from '@/components/ImportSection';
 import { useAppStore } from '@/lib/store';
 import {
   isNotificationSupported,
@@ -318,6 +320,11 @@ export function Settings() {
     }
   }, [isInitialized, loadData]);
 
+  const handleImportComplete = () => {
+    // Reload all data after import
+    loadData();
+  };
+
   // Loading state
   if (isLoading || !isInitialized) {
     return (
@@ -350,6 +357,8 @@ export function Settings() {
         <Container>
           <div className="space-y-6">
             <InstallPrompt />
+            <ExportSection />
+            <ImportSection onImportComplete={handleImportComplete} />
             <NotificationPermissionStatus />
             <NotificationSchedulerStatus />
             <ReminderStrategiesInfo />
