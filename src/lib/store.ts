@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { useMemo } from 'react';
+import { shallow } from 'zustand/shallow';
 import type { Component, MaintenanceAction, MaintenanceLog, NotificationConfig } from './db';
 import { dbOperations } from './db-operations';
 
@@ -198,124 +200,150 @@ export const useActionNotificationConfig = (actionId: string) => {
 /**
  * Calculate current streak (consecutive days of compliance)
  * Returns number of days with 100% completion
+ *
+ * Optimized with:
+ * - shallow comparison to prevent unnecessary re-subscriptions
+ * - useMemo to cache expensive calculation
  */
 export const useCurrentStreak = () => {
-  const logs = useAppStore((state) => state.maintenanceLogs);
-  const actions = useAppStore((state) => state.maintenanceActions);
+  // Use shallow comparison to prevent re-renders when data hasn't changed
+  const { logs, actions } = useAppStore(
+    (state) => ({
+      logs: state.maintenanceLogs,
+      actions: state.maintenanceActions,
+    }),
+    shallow
+  );
 
-  // Build scheduled actions per day map for the last 365 days
-  const now = new Date();
-  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-  const scheduledActionsPerDay = new Map<string, Set<string>>();
+  // Memoize the expensive streak calculation
+  return useMemo(() => {
+    // Build scheduled actions per day map for the last 365 days
+    const now = new Date();
+    const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const scheduledActionsPerDay = new Map<string, Set<string>>();
 
-  for (const action of actions) {
-    if (action.schedule_unit !== 'days' || action.schedule_frequency <= 0) continue;
+    for (const action of actions) {
+      if (action.schedule_unit !== 'days' || action.schedule_frequency <= 0) continue;
 
-    const frequency = action.schedule_frequency;
-    const dayMs = 24 * 60 * 60 * 1000;
+      const frequency = action.schedule_frequency;
+      const dayMs = 24 * 60 * 60 * 1000;
 
-    // Find occurrences in range
-    let checkDate = action.next_due || new Date();
-    while (checkDate.getTime() > oneYearAgo.getTime()) {
-      checkDate = new Date(checkDate.getTime() - frequency * dayMs);
-    }
-    while (checkDate.getTime() <= now.getTime()) {
-      if (checkDate.getTime() >= oneYearAgo.getTime()) {
-        const dayKey = checkDate.toISOString().split('T')[0];
-        if (!scheduledActionsPerDay.has(dayKey)) {
-          scheduledActionsPerDay.set(dayKey, new Set());
-        }
-        if (action.id) {
-          scheduledActionsPerDay.get(dayKey)!.add(action.id);
-        }
+      // Find occurrences in range
+      let checkDate = action.next_due || new Date();
+      while (checkDate.getTime() > oneYearAgo.getTime()) {
+        checkDate = new Date(checkDate.getTime() - frequency * dayMs);
       }
-      checkDate = new Date(checkDate.getTime() + frequency * dayMs);
-    }
-  }
-
-  // Calculate streak using the new logic
-  const logsForStreak = logs.map(log => ({
-    completed_at: log.completed_at,
-    action_id: log.action_id,
-  }));
-
-  // Inline streak calculation to avoid circular dependency
-  if (logsForStreak.length === 0) return 0;
-
-  // Group completed actions by day
-  const completedByDay = new Map<string, Set<string>>();
-  for (const log of logsForStreak) {
-    const dayKey = log.completed_at.toISOString().split('T')[0];
-    if (!completedByDay.has(dayKey)) {
-      completedByDay.set(dayKey, new Set());
-    }
-    completedByDay.get(dayKey)!.add(log.action_id);
-  }
-
-  let streak = 0;
-  let currentDate = new Date(now);
-  currentDate.setHours(0, 0, 0, 0);
-
-  for (let i = 0; i < 365; i++) {
-    const dayKey = currentDate.toISOString().split('T')[0];
-    const requiredActions = scheduledActionsPerDay.get(dayKey);
-
-    if (!requiredActions || requiredActions.size === 0) {
-      currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
-      continue;
+      while (checkDate.getTime() <= now.getTime()) {
+        if (checkDate.getTime() >= oneYearAgo.getTime()) {
+          const dayKey = checkDate.toISOString().split('T')[0];
+          if (!scheduledActionsPerDay.has(dayKey)) {
+            scheduledActionsPerDay.set(dayKey, new Set());
+          }
+          if (action.id) {
+            scheduledActionsPerDay.get(dayKey)!.add(action.id);
+          }
+        }
+        checkDate = new Date(checkDate.getTime() + frequency * dayMs);
+      }
     }
 
-    const completedActions = completedByDay.get(dayKey);
-    if (!completedActions) {
-      break;
+    // Calculate streak using the new logic
+    const logsForStreak = logs.map(log => ({
+      completed_at: log.completed_at,
+      action_id: log.action_id,
+    }));
+
+    // Inline streak calculation to avoid circular dependency
+    if (logsForStreak.length === 0) return 0;
+
+    // Group completed actions by day
+    const completedByDay = new Map<string, Set<string>>();
+    for (const log of logsForStreak) {
+      const dayKey = log.completed_at.toISOString().split('T')[0];
+      if (!completedByDay.has(dayKey)) {
+        completedByDay.set(dayKey, new Set());
+      }
+      completedByDay.get(dayKey)!.add(log.action_id);
     }
 
-    let allCompleted = true;
-    for (const actionId of requiredActions) {
-      if (!completedActions.has(actionId)) {
-        allCompleted = false;
+    let streak = 0;
+    let currentDate = new Date(now);
+    currentDate.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 365; i++) {
+      const dayKey = currentDate.toISOString().split('T')[0];
+      const requiredActions = scheduledActionsPerDay.get(dayKey);
+
+      if (!requiredActions || requiredActions.size === 0) {
+        currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+        continue;
+      }
+
+      const completedActions = completedByDay.get(dayKey);
+      if (!completedActions) {
         break;
       }
+
+      let allCompleted = true;
+      for (const actionId of requiredActions) {
+        if (!completedActions.has(actionId)) {
+          allCompleted = false;
+          break;
+        }
+      }
+
+      if (!allCompleted) {
+        break;
+      }
+
+      streak++;
+      currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
     }
 
-    if (!allCompleted) {
-      break;
-    }
-
-    streak++;
-    currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
-  }
-
-  return streak;
+    return streak;
+  }, [logs, actions]);
 };
 
 /**
  * Calculate compliance percentage for last N days
+ *
+ * Optimized with:
+ * - shallow comparison to prevent unnecessary re-subscriptions
+ * - useMemo to cache calculation
  */
 export const useCompliancePercentage = (days: number = 30) => {
-  const logs = useAppStore((state) => state.maintenanceLogs);
-  const actions = useAppStore((state) => state.maintenanceActions);
-
-  const now = new Date();
-  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-
-  // Filter logs to the date range
-  const logsInRange = logs.filter(
-    (log) => log.completed_at >= startDate && log.completed_at <= now
+  // Use shallow comparison to prevent re-renders when data hasn't changed
+  const { logs, actions } = useAppStore(
+    (state) => ({
+      logs: state.maintenanceLogs,
+      actions: state.maintenanceActions,
+    }),
+    shallow
   );
 
-  // Calculate required tasks in range
-  let totalRequired = 0;
+  // Memoize the compliance calculation
+  return useMemo(() => {
+    const now = new Date();
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-  for (const action of actions) {
-    if (action.schedule_unit !== 'days' || action.schedule_frequency <= 0) continue;
-    const frequency = action.schedule_frequency;
-    const occurrences = Math.floor(days / frequency);
-    totalRequired += Math.max(1, occurrences);
-  }
+    // Filter logs to the date range
+    const logsInRange = logs.filter(
+      (log) => log.completed_at >= startDate && log.completed_at <= now
+    );
 
-  const totalCompleted = logsInRange.length;
+    // Calculate required tasks in range
+    let totalRequired = 0;
 
-  if (totalRequired === 0) return 100;
-  return Math.min(100, Math.round((totalCompleted / totalRequired) * 100));
+    for (const action of actions) {
+      if (action.schedule_unit !== 'days' || action.schedule_frequency <= 0) continue;
+      const frequency = action.schedule_frequency;
+      const occurrences = Math.floor(days / frequency);
+      totalRequired += Math.max(1, occurrences);
+    }
+
+    const totalCompleted = logsInRange.length;
+
+    if (totalRequired === 0) return 100;
+    return Math.min(100, Math.round((totalCompleted / totalRequired) * 100));
+  }, [logs, actions, days]);
 };

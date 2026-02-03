@@ -346,3 +346,6 @@ export function AnalyticsCharts({ logs, actions, components, dateRange }: Analyt
     </div>
   );
 }
+
+// Default export for React.lazy dynamic import
+export default AnalyticsCharts;

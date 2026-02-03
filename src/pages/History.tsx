@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Header, Container, Navigation } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 import { HistoryTimeline } from '@/components/HistoryTimeline';
-import { AnalyticsCharts } from '@/components/AnalyticsCharts';
 import { useAppStore, useCurrentStreak, useCompliancePercentage } from '@/lib/store';
+
+// Lazy load charts to reduce initial bundle size (~350KB recharts)
+const AnalyticsCharts = lazy(() => import('@/components/AnalyticsCharts'));
 import { useHistoryFilters, type HistoryFilters } from '@/hooks/useHistoryFilters';
 import type { Component } from '@/lib/db';
 
@@ -188,13 +191,22 @@ export function History() {
             {/* Stats Overview */}
             <StatsCards />
 
-            {/* Charts */}
-            <AnalyticsCharts
-              logs={filteredLogs}
-              actions={maintenanceActions}
-              components={components}
-              dateRange={filters.dateRange}
-            />
+            {/* Charts - lazy loaded to reduce initial bundle */}
+            <Suspense fallback={
+              <div className="grid gap-4 md:grid-cols-2">
+                <Skeleton className="h-[280px]" />
+                <Skeleton className="h-[280px]" />
+                <Skeleton className="h-[280px]" />
+                <Skeleton className="h-[280px]" />
+              </div>
+            }>
+              <AnalyticsCharts
+                logs={filteredLogs}
+                actions={maintenanceActions}
+                components={components}
+                dateRange={filters.dateRange}
+              />
+            </Suspense>
 
             {/* Filters */}
             <FilterBar

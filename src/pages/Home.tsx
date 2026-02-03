@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Header, Container, Navigation } from '@/components/layout';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -61,11 +61,12 @@ export function Home() {
 
     try {
       await completeMaintenanceAction(actionId, new Date(), notes);
-      await refreshMaintenanceActions();
-      await refreshMaintenanceLogs();
-
-      // Update notification badge count
-      await updateBadgeCount();
+      // Parallelize independent refresh operations for better performance
+      await Promise.all([
+        refreshMaintenanceActions(),
+        refreshMaintenanceLogs(),
+        updateBadgeCount(),
+      ]);
 
       // Show success feedback
       setToastMessage('Task completed! Great job!');
@@ -98,10 +99,11 @@ export function Home() {
 
     try {
       await skipMaintenanceAction(actionId);
-      await refreshMaintenanceActions();
-
-      // Update notification badge count
-      await updateBadgeCount();
+      // Parallelize independent refresh operations for better performance
+      await Promise.all([
+        refreshMaintenanceActions(),
+        updateBadgeCount(),
+      ]);
 
       setToastMessage('Task skipped. We\'ll remind you at the next scheduled time.');
       setShowToast(true);
@@ -120,10 +122,11 @@ export function Home() {
 
     try {
       await snoozeMaintenanceAction(actionId, hours);
-      await refreshMaintenanceActions();
-
-      // Update notification badge count
-      await updateBadgeCount();
+      // Parallelize independent refresh operations for better performance
+      await Promise.all([
+        refreshMaintenanceActions(),
+        updateBadgeCount(),
+      ]);
 
       const timeLabel = hours === 1 ? '1 hour' : hours === 24 ? 'tomorrow' : `${hours} hours`;
       setToastMessage(`Snoozed! We'll remind you in ${timeLabel}.`);
@@ -145,9 +148,15 @@ export function Home() {
     setShowStreakCelebration(false);
   };
 
-  // Get component by ID helper
+  // Build component lookup Map for O(1) access instead of O(n) find()
+  const componentMap = useMemo(
+    () => new Map(components.map((c) => [c.id, c])),
+    [components]
+  );
+
+  // Get component by ID helper - O(1) lookup
   const getComponentById = (componentId: string) => {
-    return components.find((c: Component) => c.id === componentId);
+    return componentMap.get(componentId);
   };
 
   // Loading state
