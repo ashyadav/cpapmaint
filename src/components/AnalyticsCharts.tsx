@@ -13,8 +13,14 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { format, startOfWeek } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { MaintenanceLog, MaintenanceAction, Component } from '@/lib/db';
+
+// Helper to create local date key (YYYY-MM-DD) without UTC conversion
+function toLocalDateKey(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
 
 interface AnalyticsChartsProps {
   logs: MaintenanceLog[];
@@ -45,20 +51,20 @@ export function CompletionRateChart({ logs, dateRange }: Pick<AnalyticsChartsPro
     for (const log of logs) {
       const date = new Date(log.completed_at);
       let key: string;
+      let bucketDate: Date;
 
       if (groupByInterval === 'day') {
-        date.setHours(0, 0, 0, 0);
-        key = date.toISOString().split('T')[0];
+        // Use local midnight, not UTC
+        bucketDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        key = toLocalDateKey(bucketDate);
       } else {
-        // Group by week - get start of week (Sunday)
-        const dayOfWeek = date.getDay();
-        date.setDate(date.getDate() - dayOfWeek);
-        date.setHours(0, 0, 0, 0);
-        key = date.toISOString().split('T')[0];
+        // Group by week - get start of week (Sunday) in local time
+        bucketDate = startOfWeek(date, { weekStartsOn: 0 });
+        key = toLocalDateKey(bucketDate);
       }
 
       if (!grouped.has(key)) {
-        grouped.set(key, { date: new Date(date), count: 0 });
+        grouped.set(key, { date: bucketDate, count: 0 });
       }
       grouped.get(key)!.count++;
     }
