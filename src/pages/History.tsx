@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense, memo } from 'react';
 import { Header, Container, Navigation } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ const navItems = [
   { label: 'Settings', href: '/settings' },
 ];
 
-function StatsCards() {
+// Memoized to prevent re-renders from parent state changes (rerender-memo pattern)
+const StatsCards = memo(function StatsCards() {
   const streak = useCurrentStreak();
   const compliance = useCompliancePercentage(30);
   const logs = useAppStore((state) => state.maintenanceLogs);
@@ -58,7 +59,7 @@ function StatsCards() {
       </Card>
     </div>
   );
-}
+});
 
 function FilterBar({
   filters,

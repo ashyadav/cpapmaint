@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Header, Container, Navigation } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,8 +31,16 @@ const navItems = [
   { label: 'Settings', href: '/settings' },
 ];
 
-function ActionHistoryItem({ log, actions }: { log: MaintenanceLog; actions: MaintenanceAction[] }) {
-  const action = actions.find(a => a.id === log.action_id);
+// Memoized to prevent re-renders when parent state changes (rerender-memo pattern)
+// Uses actionMap instead of actions array for O(1) lookup (js-index-maps pattern)
+const ActionHistoryItem = memo(function ActionHistoryItem({
+  log,
+  actionMap
+}: {
+  log: MaintenanceLog;
+  actionMap: Map<string, MaintenanceAction>;
+}) {
+  const action = actionMap.get(log.action_id);
 
   return (
     <div className="flex items-start gap-3 py-3 border-b last:border-0">
@@ -53,7 +61,7 @@ function ActionHistoryItem({ log, actions }: { log: MaintenanceLog; actions: Mai
       </div>
     </div>
   );
-}
+});
 
 export function ComponentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -100,8 +108,11 @@ export function ComponentDetail() {
     setProcessingActionId(actionId);
     try {
       await completeMaintenanceAction(actionId, new Date(), notes);
-      await refreshMaintenanceActions();
-      await refreshMaintenanceLogs();
+      // Parallelize independent refresh operations (async-parallel pattern)
+      await Promise.all([
+        refreshMaintenanceActions(),
+        refreshMaintenanceLogs(),
+      ]);
       setToastMessage('Task completed! Great job!');
       setShowToast(true);
     } catch (error) {
@@ -154,9 +165,12 @@ export function ComponentDetail() {
     setIsDeleting(true);
     try {
       await dbOperations.components.delete(id);
-      await refreshComponents();
-      await refreshMaintenanceActions();
-      await refreshMaintenanceLogs();
+      // Parallelize independent refresh operations (async-parallel pattern)
+      await Promise.all([
+        refreshComponents(),
+        refreshMaintenanceActions(),
+        refreshMaintenanceLogs(),
+      ]);
       navigate('/components');
     } catch (error) {
       console.error('Error deleting component:', error);
@@ -224,13 +238,21 @@ export function ComponentDetail() {
     );
   }
 
-  // Sort actions by due status
-  const sortedActions = [...actions].sort((a, b) => {
-    const statusA = a.next_due ? getDueStatus(a.next_due) : 'ok';
-    const statusB = b.next_due ? getDueStatus(b.next_due) : 'ok';
-    const statusOrder = { overdue: 0, due: 1, ok: 2 };
-    return statusOrder[statusA] - statusOrder[statusB];
-  });
+  // Build action lookup Map for O(1) access instead of O(n) find() (js-index-maps pattern)
+  const actionMap = useMemo(
+    () => new Map(actions.filter((a) => a.id).map((a) => [a.id!, a])),
+    [actions]
+  );
+
+  // Memoize sorted actions to prevent recalculation on every render
+  const sortedActions = useMemo(() => {
+    const statusOrder = { overdue: 0, due: 1, ok: 2 } as const;
+    return [...actions].sort((a, b) => {
+      const statusA = a.next_due ? getDueStatus(a.next_due) : 'ok';
+      const statusB = b.next_due ? getDueStatus(b.next_due) : 'ok';
+      return statusOrder[statusA] - statusOrder[statusB];
+    });
+  }, [actions]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -375,7 +397,7 @@ export function ComponentDetail() {
                   <CardContent className="p-4">
                     <div className="max-h-96 overflow-y-auto">
                       {logs.slice(0, 10).map(log => (
-                        <ActionHistoryItem key={log.id} log={log} actions={actions} />
+                        <ActionHistoryItem key={log.id} log={log} actionMap={actionMap} />
                       ))}
                     </div>
                     {logs.length > 10 && (

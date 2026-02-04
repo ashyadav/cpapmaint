@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { Header, Container, Navigation } from '@/components/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -233,8 +233,8 @@ function NotificationSchedulerStatus() {
   );
 }
 
-// Reminder strategy explanation
-function ReminderStrategiesInfo() {
+// Memoized static content component (rerender-memo pattern)
+const ReminderStrategiesInfo = memo(function ReminderStrategiesInfo() {
   return (
     <Card>
       <CardHeader>
@@ -281,10 +281,10 @@ function ReminderStrategiesInfo() {
       </CardContent>
     </Card>
   );
-}
+});
 
-// About section
-function AboutSection() {
+// Memoized static content component (rerender-memo pattern)
+const AboutSection = memo(function AboutSection() {
   return (
     <Card>
       <CardHeader>
@@ -309,7 +309,7 @@ function AboutSection() {
       </CardContent>
     </Card>
   );
-}
+});
 
 export function Settings() {
   const { isLoading, isInitialized, loadData } = useAppStore();
